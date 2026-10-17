@@ -1,0 +1,30 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+env/
+.ipynb_checkpoints/
+
+# Editor / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Raw data too big for GitHub (100 MB limit).
+# Download from Kaggle's March Machine Learning Mania competition
+# and place in data/raw/.
+data/raw/MMasseyOrdinals.csv
+
+# Intermediate data, rebuilt by running the pipeline scripts
+data/processed/elo_pregame.csv
+data/processed/elo_ratings.csv
+data/processed/massey_ratings.csv
+data/processed/pretourney_team_features.csv
+data/processed/regular_game_features.csv
+data/processed/tourney_matchups.csv
+
+# Bracket simulation outputs (simulate.py), one pair per season run
+data/processed/bracket_odds_*.csv
+data/processed/bracket_picks_*.csv

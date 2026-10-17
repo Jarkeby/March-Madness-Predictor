@@ -622,6 +622,96 @@ team_stats["OpponentPossessionsPerGame"] = safe_divide(
     team_stats["Games"]
 )
 
+
+# ============================================================
+# Four Factors shooting stats
+#
+# eFG% = (FGM + 0.5 * FGM3) / FGA
+#     Field goal % that counts a three as 1.5 makes.
+#
+# FT Rate = FTA / FGA
+#     How often a team gets to the free-throw line.
+# ============================================================
+
+team_stats["EFGPct"] = safe_divide(
+    team_stats["FGM"] + 0.5 * team_stats["FGM3"],
+    team_stats["FGA"]
+)
+
+team_stats["OppEFGPct"] = safe_divide(
+    team_stats["Opponent_FGM"] + 0.5 * team_stats["Opponent_FGM3"],
+    team_stats["Opponent_FGA"]
+)
+
+team_stats["FTRate"] = safe_divide(
+    team_stats["FTA"],
+    team_stats["FGA"]
+)
+
+team_stats["OppFTRate"] = safe_divide(
+    team_stats["Opponent_FTA"],
+    team_stats["Opponent_FGA"]
+)
+
+
+# ============================================================
+# Recent form
+#
+# Win % and net efficiency over each team's last
+# RECENT_GAMES regular-season games going into the tournament.
+# ============================================================
+
+RECENT_GAMES = 10
+
+print(f"{'-'*10} Calculating Recent Form (last {RECENT_GAMES} games) {'-'*10}")
+
+recent_games = (
+    team_games
+    .sort_values(["Season", "TeamID", "DayNum"])
+    .groupby(["Season", "TeamID"])
+    .tail(RECENT_GAMES)
+)
+
+recent_form = (
+    recent_games
+    .groupby(["Season", "TeamID"])
+    .agg(
+        RecentWins=("Win", "sum"),
+        RecentGames=("Win", "count"),
+        RecentPointsFor=("PointsFor", "sum"),
+        RecentPointsAgainst=("PointsAgainst", "sum"),
+        RecentPossessions=("Possessions", "sum"),
+        RecentOpponentPossessions=("Opponent_Possessions", "sum"),
+    )
+    .reset_index()
+)
+
+recent_form["RecentWinPct"] = safe_divide(
+    recent_form["RecentWins"],
+    recent_form["RecentGames"]
+)
+
+recent_form["RecentNetEfficiency"] = (
+    safe_divide(
+        recent_form["RecentPointsFor"],
+        recent_form["RecentPossessions"]
+    ) * 100
+    - safe_divide(
+        recent_form["RecentPointsAgainst"],
+        recent_form["RecentOpponentPossessions"]
+    ) * 100
+)
+
+team_stats = team_stats.merge(
+    recent_form[["Season", "TeamID", "RecentWinPct", "RecentNetEfficiency"]],
+    on=["Season", "TeamID"],
+    how="left"
+)
+
+print(
+    f"✓ Recent form calculated for {len(recent_form):,} team-seasons."
+)
+
 team_stats = team_stats.merge(
     teams[
         [
@@ -829,6 +919,14 @@ column_order = [
     "OffensiveEfficiency",
     "DefensiveEfficiency",
     "NetEfficiency",
+
+    "EFGPct",
+    "OppEFGPct",
+    "FTRate",
+    "OppFTRate",
+
+    "RecentWinPct",
+    "RecentNetEfficiency",
 ]
 
 team_stats = team_stats[column_order]

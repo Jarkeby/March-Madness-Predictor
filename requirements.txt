@@ -1,0 +1,5 @@
+pandas>=2.3
+numpy>=2.3
+scipy>=1.17
+# 1.8+ required: the L1 model uses LogisticRegression(l1_ratio=...)
+scikit-learn>=1.8

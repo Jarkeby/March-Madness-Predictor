@@ -30,17 +30,10 @@ ROUND_NAMES = {
 
 
 def slot_order(slot):
-    """First Four slots (e.g. "W16") first, then R1, R2, ... R6."""
     return 0 if not slot.startswith("R") else int(slot[1])
 
 
 def win_probability_matrix(model, data, team_ids, season=SEASON):
-    """
-    P[i, j] = probability team_ids[i] beats team_ids[j].
-
-    Every pair is predicted with the lower TeamID as Team A, the same
-    orientation used in training, then mirrored so P[j, i] = 1 - P[i, j].
-    """
     pairs = pd.DataFrame(
         list(combinations(sorted(team_ids), 2)),
         columns=["TeamA", "TeamB"],
@@ -60,16 +53,6 @@ def win_probability_matrix(model, data, team_ids, season=SEASON):
 
 
 def simulate(slots, seed_to_team, P, index, n_simulations, rng):
-    """
-    Play the bracket n_simulations times at once.
-
-    `winners` maps a bracket label (a seed like "W01", or a slot like
-    "R1W1") to an array holding which team occupies it in each simulation.
-    A slot's winner is stored under the slot's own name, which is how
-    later rounds find their teams.
-
-    Returns {round: array of team indices that won a slot in that round}.
-    """
     winners = {
         seed: np.full(n_simulations, index[team])
         for seed, team in seed_to_team.items()
@@ -89,7 +72,6 @@ def simulate(slots, seed_to_team, P, index, n_simulations, rng):
 
 
 def most_likely_bracket(slots, seed_to_team, P, index):
-    """Fill out one bracket by always picking the team more likely to win each game."""
     occupant = dict(seed_to_team)
     picks = []
 
@@ -140,7 +122,7 @@ if __name__ == "__main__":
     if missing:
         raise ValueError(f"No {SEASON} features for TeamIDs: {sorted(missing)}")
 
-    print(f"✓ Every {SEASON} tournament team has features.")
+    print(f"Every {SEASON} tournament team has features.")
 
     print(f"{'-'*10} Training Final Model {'-'*10}")
 
@@ -179,7 +161,7 @@ if __name__ == "__main__":
         if not np.isclose(odds[name].sum(), expected):
             raise ValueError(f"{name} probabilities sum to {odds[name].sum()}, expected {expected}.")
 
-    print("✓ Round probabilities sum to the number of teams in each round.")
+    print("Round probabilities sum to the number of teams in each round.")
 
     team_info = (
         seeds

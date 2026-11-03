@@ -10,7 +10,6 @@ OUTPUT_FILE = "data/processed/team_season_stats.csv"
 
 
 def safe_divide(numerator, denominator):
-    """Safely divide two pandas Series, returning 0 if the denominator is 0."""
     return np.where(
         denominator != 0,
         numerator / denominator,
@@ -18,7 +17,6 @@ def safe_divide(numerator, denominator):
     )
 
 def check_required_columns(df, required_columns, name):
-    """Check if the DataFrame contains all required columns."""
     missing_columns = [col for col in required_columns if col not in df.columns]
     if missing_columns:
         raise ValueError(f"{name} is missing required columns: {missing_columns}")
@@ -155,7 +153,7 @@ if overlap:
         f"{len(overlap)} games appear in both datasets."
     )
 
-print("✓ No games overlap between regular season and tournament data.")
+print("No games overlap between regular season and tournament data.")
 
 print("\nChecking regular-season/tournament date boundaries...")
 
@@ -201,7 +199,7 @@ if boundary_problems:
 
 else:
     print(
-        "✓ Regular-season games occur before "
+        "Regular-season games occur before "
         "tournament games for all common seasons."
     )
 
@@ -214,7 +212,7 @@ if len(feature_source) != len(regular):
     )
 
 print(
-    "✓ Feature calculations will use ONLY "
+    "Feature calculations will use ONLY "
     "MRegularSeasonDetailedResults.csv."
 )
 
@@ -350,26 +348,11 @@ if len(team_games) != expected_records:
     )
 
 print(
-    f"✓ Every game produced exactly two team records."
+    f"Every game produced exactly two team records."
 )
 
 
-
-# ============================================================
-# Calculate possessions
-# ============================================================
-#
-# NCAA estimated possession formula:
-#
-# Possessions =
-#     FGA
-#   + 0.475 * FTA
-#   - Offensive Rebounds
-#   + Turnovers
-#
-# This is an estimate rather than an exact possession count.
-# ============================================================
-
+# Using NCAA estimated possession formula
 team_games["Possessions"] = (
     team_games["FGA"]
     + 0.475 * team_games["FTA"]
@@ -408,7 +391,7 @@ if (team_games["Possessions"] <= 0).any():
     )
 
 else:
-    print("✓ All estimated possessions are positive.")
+    print("All estimated possessions are positive.")
 
 
 
@@ -622,17 +605,6 @@ team_stats["OpponentPossessionsPerGame"] = safe_divide(
     team_stats["Games"]
 )
 
-
-# ============================================================
-# Four Factors shooting stats
-#
-# eFG% = (FGM + 0.5 * FGM3) / FGA
-#     Field goal % that counts a three as 1.5 makes.
-#
-# FT Rate = FTA / FGA
-#     How often a team gets to the free-throw line.
-# ============================================================
-
 team_stats["EFGPct"] = safe_divide(
     team_stats["FGM"] + 0.5 * team_stats["FGM3"],
     team_stats["FGA"]
@@ -653,13 +625,6 @@ team_stats["OppFTRate"] = safe_divide(
     team_stats["Opponent_FGA"]
 )
 
-
-# ============================================================
-# Recent form
-#
-# Win % and net efficiency over each team's last
-# RECENT_GAMES regular-season games going into the tournament.
-# ============================================================
 
 RECENT_GAMES = 10
 
@@ -724,7 +689,6 @@ team_stats = team_stats.merge(
 )
 
 
-
 # check for missing team names
 missing_names = team_stats[
     team_stats["TeamName"].isna()
@@ -751,17 +715,6 @@ else:
         "✓ Every team has a corresponding team name."
     )
 
-
-
-# ============================================================
-# DATA LEAKAGE CHECK #4
-#
-# Every team-season row should only contain regular-season
-# statistics.
-#
-# Verify that each team-season's final DayNum is before the
-# tournament's first DayNum for that season.
-# ============================================================
 
 print("\nChecking team-season feature boundaries...")
 
@@ -813,14 +766,6 @@ else:
         "the tournament begins."
     )
 
-
-# ============================================================
-# DATA LEAKAGE CHECK #5
-#
-# Verify that tournament games are NOT represented in our
-# team-game feature data.
-# ============================================================
-
 feature_game_keys = set(
     zip(
         team_games["Season"],
@@ -867,7 +812,7 @@ if feature_tournament_overlap:
 else:
 
     print(
-        "✓ No tournament games are present in "
+        "No tournament games are present in "
         "the feature dataset."
     )
 
@@ -967,7 +912,7 @@ if duplicates > 0:
 else:
 
     print(
-        "✓ No duplicate Season/TeamID combinations."
+        "No duplicate Season/TeamID combinations."
     )
 
 
@@ -988,7 +933,7 @@ if not record_check.all():
 else:
 
     print(
-        "✓ Win/loss/game totals are consistent."
+        "Win/loss/game totals are consistent."
     )
 
 
@@ -1008,7 +953,7 @@ if team_stats[efficiency_columns].isna().any().any():
 else:
 
     print(
-        "✓ Efficiency statistics contain no NaN values."
+        "Efficiency statistics contain no NaN values."
     )
 
 
@@ -1073,10 +1018,6 @@ print(
     ].to_string(index=False)
 )
 
-
-# ============================================================
-# Save processed data
-# ============================================================
 
 os.makedirs(
     os.path.dirname(OUTPUT_FILE),

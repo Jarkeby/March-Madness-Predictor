@@ -4,7 +4,6 @@ import pandas as pd
 
 from massey import load_daily_ratings, pre_tournament_ratings, ratings_as_of
 
-# Paths are resolved from the project root so this runs from any directory
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 REGULAR_SEASON_RESULTS_FILE = os.path.join(PROJECT_ROOT, "data/raw/MRegularSeasonDetailedResults.csv")
@@ -15,21 +14,10 @@ TEAM_STATS_FILE = os.path.join(PROJECT_ROOT, "data/processed/team_season_stats.c
 REGULAR_GAMES_OUTPUT_FILE = os.path.join(PROJECT_ROOT, "data/processed/regular_game_features.csv")
 PRETOURNEY_OUTPUT_FILE = os.path.join(PROJECT_ROOT, "data/processed/pretourney_team_features.csv")
 
-# ============================================================
-# Point-in-time features
-#
-# Every regular-season game gets each team's stats, Elo and Massey
-# rating using ONLY games played before that day. This turns ~125k
-# regular-season games into training data without leaking a game's
-# own result into its features.
-#
-# Tournament games get the same features computed from the full
-# regular season (what is known on Selection Sunday).
-# ============================================================
 
 RECENT_GAMES = 10
 
-# Season totals summed per team, then turned into rates
+# Season totals summed per team then turned into rates
 SUM_COLUMNS = [
     "Win", "Games",
     "PointsFor", "PointsAgainst",
@@ -64,7 +52,6 @@ def diff_feature_names():
 
 
 def team_game_records(regular):
-    """Two rows per game, one from each team's point of view."""
     box_score = ["Score", "FGM", "FGA", "FGM3", "FTA", "OR", "DR", "TO"]
 
     records = []
@@ -104,12 +91,10 @@ def team_game_records(regular):
 
 
 def divide(numerator, denominator):
-    """Division that gives NaN (not inf) when a team has no games yet."""
     return (numerator / denominator).replace([np.inf, -np.inf], np.nan)
 
 
 def stats_from_sums(sums):
-    """Season rate stats from summed box-score columns."""
     off_eff = divide(sums["PointsFor"], sums["Possessions"]) * 100
     def_eff = divide(sums["PointsAgainst"], sums["Opp_Possessions"]) * 100
 
@@ -130,7 +115,6 @@ def stats_from_sums(sums):
 
 
 def recent_from_sums(sums):
-    """Recent-form stats from box-score columns summed over the last few games."""
     return pd.DataFrame({
         "RecentWinPct": divide(sums["Win"], sums["Games"]),
         "RecentNetEfficiency": (
@@ -141,13 +125,6 @@ def recent_from_sums(sums):
 
 
 def pregame_team_features(team_games):
-    """
-    Each team's stats going INTO every game.
-
-    cumsum - current row = totals over all earlier games this season.
-    Subtracting the same total from RECENT_GAMES games back gives the
-    totals over just the last RECENT_GAMES games.
-    """
     keys = [team_games["Season"], team_games["TeamID"]]
 
     before = team_games.groupby(keys)[SUM_COLUMNS].cumsum() - team_games[SUM_COLUMNS]
@@ -162,7 +139,6 @@ def pregame_team_features(team_games):
 
 
 def pretourney_team_features(team_games, elo, massey_daily):
-    """Each team's stats after the full regular season, plus Elo and Massey."""
     keys = ["Season", "TeamID"]
 
     totals = team_games.groupby(keys)[SUM_COLUMNS].sum()
@@ -181,7 +157,6 @@ def pretourney_team_features(team_games, elo, massey_daily):
 
 
 def regular_game_features(regular, team_games, elo_pregame, massey_daily):
-    """One row per regular-season game with A - B pre-game feature diffs."""
     games = pd.DataFrame({
         "GameIndex": regular.index,
         "Season": regular["Season"],
@@ -232,10 +207,6 @@ def regular_game_features(regular, team_games, elo_pregame, massey_daily):
 
 
 def build_pair_features(games, pretourney):
-    """
-    Diff features for neutral-site games (tournament or simulated)
-    from pre-tournament team features. `games` needs Season, TeamA, TeamB.
-    """
     pairs = games.copy()
 
     for side in ["A", "B"]:
@@ -285,7 +256,7 @@ if __name__ == "__main__":
     if len(games) != len(regular):
         raise ValueError(f"Expected {len(regular):,} games, got {len(games):,}.")
 
-    print(f"✓ {len(games):,} regular-season games.")
+    print(f"{len(games):,} regular-season games.")
 
     print(f"{'-'*10} Data Leakage Checks {'-'*10}")
 
@@ -296,19 +267,19 @@ if __name__ == "__main__":
     if not (pregame["GamesPlayed"] == game_number).all():
         raise ValueError("DATA LEAKAGE DETECTED: pre-game stats include the current game.")
 
-    print("✓ Pre-game stats only use earlier games.")
+    print("Pre-game stats only use earlier games.")
 
     first_games = pregame["GamesPlayed"] == 0
 
     if pregame.loc[first_games, "NetEfficiency"].notna().any():
         raise ValueError("DATA LEAKAGE DETECTED: teams have stats before their first game.")
 
-    print("✓ Teams have no stats before their first game.")
+    print("Teams have no stats before their first game.")
 
     if games["EloDiff"].isna().any():
         raise ValueError("Some games are missing pre-game Elo.")
 
-    print("✓ Every game has pre-game Elo.")
+    print("Every game has pre-game Elo.")
 
     print(f"{'-'*10} Building Pre-Tournament Features {'-'*10}")
 
@@ -322,8 +293,8 @@ if __name__ == "__main__":
         if not np.allclose(compare[col], compare[f"{col}_check"]):
             raise ValueError(f"{col} does not match team_season_stats.csv.")
 
-    print("✓ Full-season stats match team_season_stats.csv.")
-    print(f"✓ {len(pretourney):,} team-seasons.")
+    print("Full-season stats match team_season_stats.csv.")
+    print(f"{len(pretourney):,} team-seasons.")
 
     usable = games.dropna()
     print(f"\nGames with every feature available: {len(usable):,} of {len(games):,}")

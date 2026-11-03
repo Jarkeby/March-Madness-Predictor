@@ -2,50 +2,24 @@ import os
 import numpy as np
 import pandas as pd
 
-# Paths are resolved from the project root so this runs from any directory
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-
 MASSEY_FILE = os.path.join(PROJECT_ROOT, "data/raw/MMasseyOrdinals.csv")
-
 OUTPUT_FILE = os.path.join(PROJECT_ROOT, "data/processed/massey_ratings.csv")
 
-# ============================================================
-# Ranking systems
-#
-# The only five systems that rank every tournament team in every
-# season 2003-2026. Chosen on coverage alone, NOT on how well they
-# predict, so picking them doesn't peek at any test results.
-#
+
 #   POM = KenPom, MOR = Moore, DOL = Dolphin,
 #   COL = Colley, WLK = Whitlock
-# ============================================================
-
 SYSTEMS = ["POM", "MOR", "DOL", "COL", "WLK"]
 
-# Rankings dated day 133 are the final pre-tournament rankings;
 # the tournament starts on day 134.
 LAST_PRE_TOURNAMENT_DAY = 133
 
 
 def rank_to_rating(rank):
-    """
-    Convert an ordinal rank into a rating where gaps mean something.
-
-    The gap between #1 and #10 matters far more than #200 vs #210,
-    which a raw rank treats the same. This curve (popular in Kaggle
-    March Madness solutions) is steep at the top and flat lower down.
-    """
     return 100 - 4 * np.log(rank + 1) - rank / 22
 
 
 def build_daily_ratings(massey):
-    """
-    One row per Season / TeamID / day that any chosen system published.
-
-    Each system's most recent ranking is carried forward until it
-    publishes again, so every row is "what each system said as of
-    that day". MasseyRating averages the systems available that day.
-    """
     massey = massey[
         massey["SystemName"].isin(SYSTEMS)
         & (massey["RankingDayNum"] <= LAST_PRE_TOURNAMENT_DAY)
@@ -76,7 +50,6 @@ def build_daily_ratings(massey):
 
 
 def pre_tournament_ratings(daily):
-    """Each team-season's final ratings before the tournament."""
     return (
         daily
         .sort_values("RankingDayNum")
@@ -88,13 +61,6 @@ def pre_tournament_ratings(daily):
 
 
 def ratings_as_of(games, daily, team_column):
-    """
-    Attach each team's ratings as of the game day.
-
-    Uses the latest ranking with RankingDayNum <= DayNum. Kaggle defines
-    RankingDayNum as the first day a ranking may be used to predict
-    games, so a day-d ranking is safe for a day-d game.
-    """
     left = games[["Season", "DayNum", team_column]].reset_index()
 
     merged = pd.merge_asof(
@@ -134,7 +100,7 @@ if __name__ == "__main__":
     if daily["RankingDayNum"].max() > LAST_PRE_TOURNAMENT_DAY:
         raise ValueError("DATA LEAKAGE DETECTED: rankings from tournament days included.")
 
-    print(f"✓ No rankings after day {LAST_PRE_TOURNAMENT_DAY} (tournament starts day 134).")
+    print(f"No rankings after day {LAST_PRE_TOURNAMENT_DAY} (tournament starts day 134).")
 
     pre_tournament = pre_tournament_ratings(daily)
 
@@ -148,7 +114,7 @@ if __name__ == "__main__":
             f"{covered['MasseyRating'].isna().sum()} tournament teams have no Massey rating."
         )
 
-    print("✓ Every tournament team has a pre-tournament Massey rating.")
+    print("Every tournament team has a pre-tournament Massey rating.")
 
     latest_season = daily["Season"].max()
 

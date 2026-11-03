@@ -3,7 +3,6 @@ import pandas as pd
 
 from massey import load_daily_ratings, pre_tournament_ratings
 
-# Paths are resolved from the project root so this runs from any directory
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 TEAM_STATS_FILE = os.path.join(PROJECT_ROOT, "data/processed/team_season_stats.csv")
@@ -13,9 +12,7 @@ TOURNAMENT_RESULTS_FILE = os.path.join(PROJECT_ROOT, "data/raw/MNCAATourneyDetai
 
 OUTPUT_FILE = os.path.join(PROJECT_ROOT, "data/processed/tourney_matchups.csv")
 
-# Team-season columns turned into A - B difference features.
-# Raw totals (PointsFor, FGM, ...) are left out because they depend on
-# games played and duplicate the per-game / per-possession versions.
+
 FEATURE_COLUMNS = [
     "Seed",
     "Elo",
@@ -44,7 +41,6 @@ FEATURE_COLUMNS = [
 
 
 def load_team_features():
-    """Team-season stats joined with Elo, Massey and seeds, one row per Season/TeamID."""
     stats = pd.read_csv(TEAM_STATS_FILE)
     elo = pd.read_csv(ELO_FILE)
     massey = pre_tournament_ratings(load_daily_ratings())
@@ -70,12 +66,6 @@ def load_team_features():
 
 
 def build_matchups(games, team_features):
-    """
-    Turn a table of games (Season, TeamA, TeamB) into diff-feature rows.
-
-    TeamA is always the lower TeamID so the winner is not always in the
-    same slot, which would let the model "learn" the label from the order.
-    """
     matchups = games.copy()
 
     for side in ["A", "B"]:
@@ -134,14 +124,14 @@ if __name__ == "__main__":
             f"{matchups.loc[missing, ['Season', 'TeamA', 'TeamB']].head(20)}"
         )
 
-    print("✓ Every tournament game has features for both teams.")
+    print("Every tournament game has features for both teams.")
 
     if len(matchups) != len(tournament):
         raise ValueError(
             f"Expected {len(tournament):,} matchups, got {len(matchups):,}."
         )
 
-    print(f"✓ Built {len(matchups):,} matchups.")
+    print(f"Built {len(matchups):,} matchups.")
     print(f"A_won rate: {matchups['A_won'].mean():.3f} (should be near 0.5)")
 
     column_order = (

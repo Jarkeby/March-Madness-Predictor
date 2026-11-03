@@ -2,7 +2,6 @@ import os
 import numpy as np
 import pandas as pd
 
-# Paths are resolved from the project root so this runs from any directory
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 REGULAR_SEASON_RESULTS_FILE = os.path.join(PROJECT_ROOT, "data/raw/MRegularSeasonDetailedResults.csv")
@@ -11,13 +10,7 @@ TOURNAMENT_RESULTS_FILE = os.path.join(PROJECT_ROOT, "data/raw/MNCAATourneyDetai
 OUTPUT_FILE = os.path.join(PROJECT_ROOT, "data/processed/elo_ratings.csv")
 PREGAME_OUTPUT_FILE = os.path.join(PROJECT_ROOT, "data/processed/elo_pregame.csv")
 
-# ============================================================
 # Elo parameters
-#
-# Tuned by grid search on how well PRE-GAME Elo predicts
-# regular-season games (2004+), not on tournament games, so
-# the tournament validation in train.py stays clean.
-# ============================================================
 
 MEAN_RATING = 1500   # every new team starts here
 K = 45               # how far one game moves a rating
@@ -25,31 +18,18 @@ HOME_ADVANTAGE = 100 # Elo points added to the home team's rating
 CARRYOVER = 0.9      # share of last season's (rating - mean) that is kept
 
 # Let PAST tournaments update ratings carried into the next season.
-# A season's own tournament is never included in its Elo feature.
 USE_TOURNAMENT_GAMES = True
 
 
 def win_probability(rating_diff):
-    """Elo expected score for a team that is rating_diff points better."""
     return 1 / (1 + 10 ** (-rating_diff / 400))
 
 
 def margin_multiplier(margin, winner_rating_diff):
-    """
-    Bigger wins move ratings more, but less so when a strong team
-    beats a weak one (FiveThirtyEight-style, stops blowouts of bad
-    teams from inflating ratings).
-    """
     return (margin + 3) ** 0.8 / (7.5 + 0.006 * winner_rating_diff)
 
 
 def update_ratings(ratings, game, k, home_advantage):
-    """
-    Apply one game to the ratings dict.
-
-    Returns the winner's and loser's PRE-game ratings and the winner's
-    pre-game win probability.
-    """
     winner_rating = ratings.get(game.WTeamID, MEAN_RATING)
     loser_rating = ratings.get(game.LTeamID, MEAN_RATING)
 
@@ -91,17 +71,6 @@ def run_elo(
         3. SNAPSHOT ratings -> this is the season's Elo feature
         4. play that season's tournament games (if given), which only
            affect next season's starting ratings
-
-    Because the snapshot happens before step 4, a season's Elo never
-    includes that season's tournament results.
-
-    Returns:
-        end_of_season: DataFrame of Season, TeamID, Elo for every team
-            that played a regular-season game that season
-        pregame: one row per regular-season game with both teams'
-            PRE-game ratings (WElo, LElo) and the winner's pre-game win
-            probability (WinProb). Used as point-in-time features and to
-            measure how predictive the ratings are.
     """
     regular = regular.sort_values(["Season", "DayNum"]).reset_index(drop=True)
 
@@ -147,12 +116,6 @@ def run_elo(
 
 
 def pregame_accuracy_metrics(pregame):
-    """
-    Log loss and accuracy of pre-game Elo on regular-season games.
-
-    The first season starts every team at 1500, so its ratings are
-    rough; it is skipped when judging accuracy.
-    """
     probs = pregame.loc[pregame["Season"] > pregame["Season"].min(), "WinProb"].to_numpy()
 
     log_loss = -np.mean(np.log(np.clip(probs, 1e-6, 1)))
@@ -205,12 +168,12 @@ if __name__ == "__main__":
             f"changed {check_season} Elo ratings."
         )
 
-    print(f"✓ {check_season} Elo is unchanged when {check_season} tournament games are removed.")
+    print(f"{check_season} Elo is unchanged when {check_season} tournament games are removed.")
 
     if elo.duplicated(subset=["Season", "TeamID"]).any():
         raise ValueError("Duplicate Season/TeamID Elo rows.")
 
-    print(f"✓ {len(elo):,} team-season ratings.")
+    print(f"{len(elo):,} team-season ratings.")
 
     latest_season = elo["Season"].max()
 

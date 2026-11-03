@@ -1,3 +1,4 @@
+
 import argparse
 from dataclasses import dataclass
 
@@ -24,23 +25,12 @@ from game_features import (
     load_regular_game_features,
 )
 
-# ============================================================
-# Validation seasons
-#
-# DEV seasons are for comparing and tuning models. HOLDOUT seasons
-# are locked away and only scored once, at the end, with
-#     python src/train.py --holdout
-# If we tuned on the holdout too, its score would be optimistic.
-# ============================================================
-
 DEV_SEASONS = list(range(2010, 2020))
-HOLDOUT_SEASONS = list(range(2021, 2026))  # no tournament in 2020
+HOLDOUT_SEASONS = list(range(2021, 2026))  
 
 # Keeps one confident wrong pick from blowing up log loss
 CLIP = 0.025
 
-# Regular-season games need both teams to have played this many
-# games, so early-season stats aren't pure noise
 MIN_PRIOR_GAMES = 5
 
 # 2003 Elo starts every team at 1500, so skip it for margin models
@@ -75,13 +65,7 @@ def load_data():
 
 
 def add_flipped_rows(X, y):
-    """
-    Add every game a second time from Team B's point of view.
 
-    Diff features change sign and the label flips, so the model sees
-    each game both ways and its predictions stay symmetric:
-    P(A beats B) = 1 - P(B beats A).
-    """
     return (
         pd.concat([X, -X], ignore_index=True),
         pd.concat([y, 1 - y], ignore_index=True),
@@ -89,14 +73,12 @@ def add_flipped_rows(X, y):
 
 
 class TourneyModel:
-    """Classifier trained only on past tournament games."""
 
     def __init__(self, features, make_model):
         self.features = features
         self.make_model = make_model
 
     def fit(self, data, season):
-        """Train on every tournament before `season`."""
         train = data.matchups[data.matchups["Season"] < season]
         X, y = add_flipped_rows(train[self.features], train["A_won"])
 
@@ -106,33 +88,17 @@ class TourneyModel:
         return self
 
     def predict(self, data, games):
-        """P(TeamA beats TeamB) for a DataFrame with Season, TeamA, TeamB."""
         X = build_matchups(games[["Season", "TeamA", "TeamB"]], data.team_features)[self.features]
         return np.clip(self.model.predict_proba(X)[:, 1], CLIP, 1 - CLIP)
 
 
 class MarginModel:
-    """
-    Regressor trained on ~100k regular-season games to predict the
-    point margin, which keeps information a win/loss label throws away.
-
-    The predicted margin becomes a win probability in one of two ways:
-        "normal":  P = Phi(margin / sigma), where sigma is how far real
-                   margins land from predictions (about 11 points)
-        "stacked": logistic regression on [predicted margin, seed diff]
-                   fit on past tournament games, which also lets seed
-                   (unknown for regular-season games) add information
-    """
 
     def __init__(self, make_regressor, convert):
         self.make_regressor = make_regressor
         self.convert = convert
 
     def fit(self, data, season):
-        """
-        Train on regular-season games through `season` (all played
-        before that season's tournament) and tournaments before it.
-        """
         train = data.regular[data.regular["Season"] <= season]
         X, y = train[MARGIN_FEATURES], train["Margin"]
 
@@ -154,11 +120,9 @@ class MarginModel:
         return self
 
     def _raw_margin(self, X):
-        """Average f(x) and -f(-x) so swapping teams exactly negates the margin."""
         return (self.regressor.predict(X) - self.regressor.predict(-X)) / 2
 
     def predict_margin(self, data, games):
-        """Predicted TeamA - TeamB margin on a neutral court."""
         pairs = build_pair_features(games[["Season", "TeamA", "TeamB"]], data.pretourney)
         return self._raw_margin(pairs[MARGIN_FEATURES])
 
@@ -171,7 +135,6 @@ class MarginModel:
         })
 
     def predict(self, data, games):
-        """P(TeamA beats TeamB) for a DataFrame with Season, TeamA, TeamB."""
         if self.convert == "normal":
             probs = norm.cdf(self.predict_margin(data, games) / self.sigma)
         else:
@@ -181,7 +144,6 @@ class MarginModel:
 
 
 class EnsembleModel:
-    """Average the win probabilities of several models."""
 
     def __init__(self, makers):
         self.makers = makers
@@ -244,7 +206,6 @@ MODELS = {
 
 
 def evaluate(data, seasons):
-    """Rolling validation: for each season S, train on what was known before S's tournament."""
     rows = []
 
     for season in seasons:

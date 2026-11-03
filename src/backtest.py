@@ -15,23 +15,9 @@ from simulate import (
 )
 from train import DEV_SEASONS, MODELS, load_data
 
-# ============================================================
-# Bracket backtest
-#
-# For each of the last 10 tournaments, fill out the bracket the
-# model would have picked using ONLY data from before that
-# tournament, then grade it against what actually happened.
-#
-# Note: 2015-2019 are DEV seasons, which were used to choose the
-# final model, so those years are slightly optimistic. 2021-2025
-# are the untouched holdout.
-# ============================================================
 
 BACKTEST_SEASONS = [2015, 2016, 2017, 2018, 2019, 2021, 2022, 2023, 2024, 2025]
 
-# Seed-only picks the better seed every game. When equal seeds meet
-# (e.g. two 1-seeds in the Final Four) it's a coin flip, broken by
-# taking the team listed first in the bracket.
 COMPARE_MODELS = [FINAL_MODEL, "Seed only (LR)"]
 
 N_SIMULATIONS = 10_000
@@ -53,14 +39,6 @@ def load_bracket(season):
 
 
 def actual_bracket(slots, seed_to_team, results):
-    """
-    Walk the bracket with real results.
-
-    Returns ({slot: TeamID that actually won it}, set of slots with no
-    game played). Each slot's real game is found by the two teams that
-    occupied it. A missing game (2021 Oregon vs VCU was a COVID
-    no-contest) goes to whichever team played later in the tournament.
-    """
     games = {
         frozenset((w, l)): w
         for w, l in zip(results["WTeamID"], results["LTeamID"])
@@ -87,7 +65,6 @@ def actual_bracket(slots, seed_to_team, results):
 
 
 def grade(picks, actual, not_played):
-    """Score one filled-out bracket against the real results."""
     picks = picks[picks["Round"] >= 1].copy()  # First Four isn't part of a normal bracket
     picks["Correct"] = picks["PickTeamID"] == picks["Slot"].map(actual)
 
@@ -110,7 +87,6 @@ def grade(picks, actual, not_played):
 
 
 def champion_odds(slots, seed_to_team, P, index, team, rng):
-    """Model's pre-tournament probability that `team` wins it all."""
     round_winners = simulate(slots, seed_to_team, P, index, N_SIMULATIONS, rng)
     return np.mean(round_winners[6] == index[team])
 
